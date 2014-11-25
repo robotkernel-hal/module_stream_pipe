@@ -1,0 +1,5 @@
+module tcp
+
+this module will provide read() and write() calls.
+
+it can be configured to be either a tcp server or a tcp client.
