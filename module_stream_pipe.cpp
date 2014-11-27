@@ -47,30 +47,11 @@ extern "C" {
 }
 #endif
 
-//! cyclic process data read
-/*!
-  \param hdl module handle
-  \param buf process data buffer
-  \param bufsize size of process data buffer
-  \return size of read bytes
- */
 ssize_t mod_read(MODULE_HANDLE hdl, void* buf, size_t bufsize) {
-    // cast struct
-    stream_pipe* dev = (stream_pipe*)hdl;
-    return dev->read((char *)buf, bufsize);
+	return -1;
 }
-
-//! cyclic process data write
-/*!
-  \param hdl module handle
-  \param buf process data buffer
-  \param bufsize size of process data buffer
-  \return size of written bytes
-  */
 ssize_t mod_write(MODULE_HANDLE hdl, void* buf, size_t bufsize) {
-    // cast struct
-    stream_pipe* dev = (stream_pipe*)hdl;
-    return dev->write((char *)buf, bufsize);
+	return -1;
 }
 
 //! configures module
@@ -87,8 +68,7 @@ MODULE_HANDLE mod_configure(const char* name, const char* config) {
     YAML::Parser parser(stream);
     YAML::Node doc;
 
-    klog(info, "[%s|%s] build by: " BUILD_USER "@" BUILD_HOST "\n", MODNAME, name);
-    klog(info, "[%s|%s] build date: " BUILD_DATE "\n", MODNAME, name);
+    klog(info, "[%s|%s] build by: " BUILD_USER "@" BUILD_HOST " date: " BUILD_DATE "\n", MODNAME, name);
 
     if (!parser.GetNextDocument(doc)) {
         klog(error, "[%s|%s] error parsing config file\n", MODNAME, name);

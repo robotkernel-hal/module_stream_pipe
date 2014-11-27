@@ -53,276 +53,143 @@ using namespace module_stream_pipe;
 
 #define str_exception ::str_exception
 
+stream_pipe::piper::piper(stream_pipe* parent) {
+	this->parent = parent;
+	m1 = NULL;
+	m2 = NULL;
+}
+stream_pipe::piper::~piper() {
+	stop();
+}
+void stream_pipe::piper::init() {
+	stop();
+	this->m1 = NULL;
+	this->m2 = NULL;
+}
+
+void stream_pipe::piper::op(std::string mod1, robotkernel::module* m1, std::string mod2, robotkernel::module* m2) {
+	this->mod1 = mod1;
+	this->mod2 = mod2;
+	this->m1 = m1;
+	this->m2 = m2;
+	start();
+}
+
+void stream_pipe::piper::run() {
+	vector<char> buffer(parent->buffer_size);
+	parent->log(verbose, "stream pipe reading from %s writing to %s running!\n", mod1.c_str(), mod2.c_str());
+	while (_running) {
+		ssize_t ret = m1->read(&buffer[0], parent->buffer_size);
+		if(parent->debug) parent->log(info, "got %d bytes from %s\n", ret, mod1.c_str());
+
+		if(ret <= 0) {
+			parent->log(error, "read from %p returned %d!\n", m1, ret);
+			usleep(100000);
+			continue;
+		}
+		unsigned int to_write = (unsigned int)ret;
+		unsigned int written = 0;
+
+		if(mod2 == "STDOUT") {
+			stringstream ss;
+			unsigned int N = 16;
+			while(written < to_write) {
+				for(unsigned int i = written; i < written + N && i < to_write; ++i) {
+					ss << format_string("%02x ", (unsigned int)buffer[i]);
+				}
+				for(unsigned int i = 0; i < (written + N) - to_write; ++i)
+					ss << "   ";
+				ss << " | ";
+				for(unsigned int i = written; i < written + N && i < to_write; ++i) {
+					char cp = buffer[i];
+					if(isprint(cp))
+						ss << format_string("%c", cp);
+					else
+						ss << ".";
+				}
+				ss << "\n";
+				written += N;				
+			}
+			parent->log(info, "write to stdout:\n%s", ss.str().c_str());
+			continue;
+		}
+		while(to_write > written) {
+			if(parent->debug) parent->log(info, "write %d bytes to %s\n", to_write - written, mod2.c_str());
+			ret = m2->write(&buffer[written], to_write - written);
+			if(ret <= 0) {
+				parent->log(warning, "write %d bytes to %p returned %d\n", to_write - written, m2, ret);
+				usleep(100000);
+				continue;
+			}
+			written += ret;
+		}
+	}
+}
+
 stream_pipe::stream_pipe(const char *name, const YAML::Node& node) {
 	this->name = name;
 
 	// init state
 	state = module_state_init;
-	server_fd = -1;
-	fd = -1;
 
-	const YAML::Node *value;
 
-	mode = node["mode"].to<std::string>();
-	if(mode == "server") {
-		listening_port = node["listening_port"].to<unsigned>();
-		mode_desc = format_string("server on port %d", listening_port);
-	}
-	else if(mode == "client") {
-		if((value = node.FindValue("peer"))) {
-			string peer = (*value).to<string>();
-			string::size_type p = peer.find(":");
-			if(p == string::npos)
-				throw str_exception_tb("peer spec %s does not include port! needs to look like: hostname:portnumber", repr(peer).c_str());
-			peer_hostname = peer.substr(0, p);
-			peer_port = atoi(peer.substr(p+1).c_str());
-		} else {
-			peer_hostname = node["peer_hostname"].to<string>();
-			peer_port = node["peer_port"].to<unsigned>();
-		}
-		mode_desc = format_string("client to peer %s:%d", peer_hostname.c_str(), peer_port);
-	} else
-		throw str_exception_tb("invalid/unknown mode: %s. needs to be either server or client!", repr(mode).c_str());
+	module1 = node["module1"].to<std::string>();
+	module2 = node["module2"].to<std::string>();
 	
-	if((value = node.FindValue("read_timeout")))
-		read_timeout = (*value).to<double>();
+	const YAML::Node *value;
+	if((value = node.FindValue("bidirectional")))
+		bidirectional = (*value).to<bool>();
 	else
-		read_timeout = -1; // blocking no timeout
+		bidirectional = true;
+
+	if((value = node.FindValue("buffer_size")))
+		buffer_size = (*value).to<unsigned int>();
+	else
+		buffer_size = 1024;
+
+	if((value = node.FindValue("debug")))
+		debug = (*value).to<bool>();
+	else
+		debug = false;
+	
+	pipers.push_back(new piper(this));
+	if(bidirectional)
+		pipers.push_back(new piper(this));
 }
 
 stream_pipe::~stream_pipe() {
 	set_state(module_state_init);
+	for(unsigned int i = 0; i < 2; ++i)
+		delete pipers[i];
 }
 
-void set_timeout(struct timeval* tv, double timeout) {
-	tv->tv_sec = (unsigned long)timeout;
-	tv->tv_usec = (unsigned long)((timeout - tv->tv_sec) * 1e6);
-}
-
-
-ssize_t stream_pipe::read(char *data, size_t data_len) {
-	if (state < module_state_safeop) // invalid state
-		return -1;
-
-	if(fd == -1) {
-		if(mode == "client") {
-			log(warning, "read: there is no connection to server!");
-			set_state(module_state_init);
-			return -1;
-		}
-		// server has to wait for incoming client connection
-		while(read_timeout != -1) {
-			fd_set readset;
-			FD_ZERO(&readset);
-			FD_SET(server_fd, &readset);
-			timeval timeout;
-			set_timeout(&timeout, read_timeout);			
-			int rc = select(server_fd + 1, &readset, NULL, NULL, &timeout);
-			if (rc == -1) {
-				if (errno == EINTR)
-					continue;
-				log(warning, "select returned %s\n", strerror(errno));
-				return -1;
-			} else if (rc == 0) {
-				log(info, "reading from stream_pipe timed out\n");
-				return 0;
-			}
-			break;
-		}
-		// accept client connection!
-		struct sockaddr_in client;
-		socklen_t client_len = sizeof(client);
-		fd = accept(server_fd, (struct sockaddr*)&client, &client_len);
-		if(fd == -1)
-			throw str_exception_tb("stream_pipe(%s)::read(%d) failed to accept new client!", name.c_str(), data_len);
-	}
-	
-	while(read_timeout != -1) {
-		fd_set readset;
-		FD_ZERO(&readset);
-		FD_SET(fd, &readset);
-		timeval timeout;
-		set_timeout(&timeout, read_timeout);			
-		int rc = select(fd + 1, &readset, NULL, NULL, &timeout);
-		if (rc == -1) {
-			if (errno == EINTR)
-				continue;
-			log(warning, "select returned %s\n", strerror(errno));
-			return -1;
-		} else if (rc == 0) {
-			log(info, "reading from stream_pipe stream timed out\n");
-			return 0;
-		}
-		break;
-	}
-	
-	int ret = recv(fd, data, data_len, 0);
-	if(ret == -1)
-		log(warning, "recv: %d %s", errno, strerror(errno));
-	if(ret == 0)
-		log(warning, "recv: eof from stream!");
-	if(ret <= 0) {
-		if(mode == "client") {
-			set_state(module_state_init);
-		} else {
-			log(warning, "closing connection to client.");
-			close(fd);
-			fd = -1;
-		}
-		return ret;
-	}
-	log(info, "read %d bytes\n", ret);
-	return ret;		
-}
-
-ssize_t stream_pipe::write(char *data, size_t data_len) {
-	if(state < module_state_op)
-		// invalid state
-		return 0;
-	if(fd == -1)
-		return -1; // no connection!
-	
-	int ret = send(fd, data, data_len, 0);
-	if(ret == -1) {
-		log(warning, "send: %d %s", errno, strerror(errno));
-		set_state(module_state_init);
-		return -1;
-	}
-	return ret;		
-}
-
-void resolve_hostname(const char* hostname, struct sockaddr_in* sa) {
-	// resolve hostname
-	if(!hostname || hostname[0] == 0)
-		throw str_exception_tb("empty hostname!");
-
-	if(isdigit(hostname[0])) {
-		// printf("hostname[0] is digit: '%s'\n", hostname);
-		// assume dotted decimal notation
-		int ret = inet_aton(hostname, &sa->sin_addr);
-#ifndef __VXWORKS__
-		if(ret) {
-#else
-		if(ret == 0) {
-#endif
-			// printf("it seems to be a dotted decimal ip: %s, ret: %d\n", hostname, ret);
-			sa->sin_family = AF_INET;
-			return; // otherwise try to resolve...
-		}
-	}		
-#ifdef __WIN32__
-	struct addrinfo *result = NULL;
-
-	int ret = getaddrinfo(hostname, NULL, NULL, &result);
-	if(ret)
-		throw str_exception_tb("resolve_hostname: gai_strerror: %s\n", gai_strerror(ret));
-
-	struct addrinfo *ptr = NULL;
-	int found = 0;
-	for(ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-		if (ptr->ai_family == AF_INET) {
-			//memcpy(&sa->sin_addr, ptr->ai_addr, sizeof(sa->sin_addr));
-			memcpy(&sa->sin_addr, &((struct sockaddr_in*)ptr->ai_addr)->sin_addr, sizeof(sa->sin_addr));
-			sa->sin_family = AF_INET;
-			found = 1;
-			break;
-		}
-	}
-	freeaddrinfo(result);
-	if(!found)
-		throw str_exception_tb("unknown hostname: %s", repr(hostname).c_str());
-#else
-	// struct hostent* he = gethostbyname(hostname);
-	struct addrinfo hints;
-	struct addrinfo* result = NULL;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	int ret;
-	if((ret = getaddrinfo(hostname, NULL, &hints, &result)))
-		throw str_exception_tb("unknown hostname: %s", repr(hostname).c_str());
-
-	struct addrinfo *ptr = NULL;
-	int found = 0;
-	for(ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-		if (ptr->ai_family == AF_INET) {
-			memcpy(&sa->sin_addr, &((struct sockaddr_in*)ptr->ai_addr)->sin_addr, sizeof(sa->sin_addr));
-			sa->sin_family = AF_INET;
-			found = 1;
-			break;
-		}
-	}
-	freeaddrinfo(result);
-	if(!found)
-		throw str_exception_tb("unknown hostname: %s", repr(hostname).c_str());
-#endif
-	return;
-}
 
 int stream_pipe::set_state(module_state_t state) {
 	switch (state) {
         case module_state_init:
-		if(fd > 0) {
-			close(fd);
-			fd = -1;
-		}
-		if(server_fd > 0) {
-			close(server_fd);
-			server_fd = -1;
-		}
+		for(unsigned int i = 0; i < 2; ++i)
+			pipers[i]->init();
 		break;
-        case module_state_preop: {
-		if(mode == "client") {
-			fd = socket(AF_INET, SOCK_STREAM, 0);
-			if(fd == -1)
-				throw errno_exception_tb("socket");
-		} else if(mode == "server") {
-			server_fd = socket(AF_INET, SOCK_STREAM, 0);
-			if(server_fd == -1)
-				throw errno_exception_tb("socket");
-
-			struct sockaddr_in peer_addr;
-			peer_addr.sin_family = AF_INET;
-			peer_addr.sin_port = htons(listening_port);
-			peer_addr.sin_addr.s_addr = INADDR_ANY;
-			
-#ifdef __VXWORKS__
-#elif __WIN32__
-			char on = 1;
-			if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
-				throw errno_exception("setsockopt(SO_REUSEADDR)");
-#else
-			int on = 1;
-			if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
-				throw errno_exception("setsockopt(SO_REUSEADDR)");
-#endif
-			
-			if(bind(server_fd, (struct sockaddr*) &peer_addr, sizeof(peer_addr)))
-				throw errno_exception("bind");
-			
-			if(listen(server_fd, 1))
-				throw errno_exception("listen");
+	case module_state_preop:
+		m1 = kernel::get_instance()->get_module(module1.c_str());
+		if(!m1)
+			throw str_exception_tb("failed to find module1: %s", repr(module1).c_str());
+		if(module2 == "STDOUT")
+			m2 = NULL;
+		else {
+			m2 = kernel::get_instance()->get_module(module2.c_str());
+			if(!m2)
+				throw str_exception_tb("failed to find module2: %s", repr(module2).c_str());
 		}
-		break;
-        }
-        case module_state_safeop: {
-		log(info, "opening stream_pipe stream %s ...\n", mode_desc.c_str());
 		
-		if(mode == "client") {
-			// try to connect to server!			
-			struct sockaddr_in peer_addr;
-			peer_addr.sin_family = AF_INET;
-			peer_addr.sin_port = htons(peer_port);
-			resolve_hostname(peer_hostname.c_str(), &peer_addr);			
-
-			int ret = connect(fd, (struct sockaddr*)&peer_addr, sizeof(peer_addr));
-			if(ret == -1)
-				throw errno_exception_tb("connect %s:%d", repr(peer_hostname).c_str(), peer_port);
-		} else {
-			
-		}
+		pipers[0]->op(module1, m1, module2, m2);
+		if(bidirectional && module2 != "STDOUT")
+			pipers[1]->op(module2, m2, module1, m1);
 		break;
-	}
+        case module_state_safeop:
+		break;
 	case module_state_op:
+		break;
         case module_state_boot:
 		break;
         default:
@@ -342,12 +209,11 @@ int stream_pipe::request(int reqcode, void* ptr) {
 	switch (reqcode) {
         case MOD_REQUEST_GET_MODULE_FEAT: {
 		int *mod_feat = (int *)ptr;
-		*mod_feat = MODULE_FEAT_READ | MODULE_FEAT_WRITE;
+		*mod_feat = 0;
 		break;
         }
         default:
-		log(verbose, "not implemented request %d\n", 
-                    reqcode);
+		log(verbose, "not implemented request %d\n", reqcode);
 		ret = -1;
 		break;
 	}

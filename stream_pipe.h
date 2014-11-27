@@ -27,8 +27,10 @@
 
 #include "robotkernel/kernel.h"
 #include "module_stream_pipe.h"
-#include <string>
 #include "yaml-cpp/yaml.h"
+
+#include <string>
+#include <vector>
 
 namespace module_stream_pipe {
 #ifdef EMACS_IS_CLEVER
@@ -39,24 +41,40 @@ class stream_pipe {
 public:
 	std::string name;
 
-	std::string mode; // server | client
-	unsigned int listening_port; // for server
-	std::string peer_hostname; // for client
-	unsigned int peer_port; // for client
-	double read_timeout;
-
+	std::string module1;
+	std::string module2;
+	bool bidirectional;
+	unsigned int buffer_size;
+	bool debug;
+	
 	// state
-	std::string mode_desc;
 	module_state_t state;
-	int server_fd; // for server
-	int fd; // connection fd;
+	robotkernel::module* m1;
+	robotkernel::module* m2;
 
 	stream_pipe(const char *name, const YAML::Node& node);
 	~stream_pipe();
 
+	class piper : public robotkernel::runnable {
+		stream_pipe* parent;
+
+		std::string mod1;
+		std::string mod2;
+		
+		robotkernel::module* m1;
+		robotkernel::module* m2;
+	public:
+		piper(stream_pipe* parent);
+		~piper();
+		void init();
+		void op(std::string mod1, robotkernel::module* m1, std::string mod2, robotkernel::module* m2);
+
+		void run();
+	};
+	typedef std::vector<piper*> pipers_t;
+	pipers_t pipers;
+
 	int set_state(module_state_t state);
-	ssize_t read(char *data, size_t data_len);
-	ssize_t write(char *data, size_t data_len);
 	int request(int reqcode, void* ptr);
         
 	//! log to kernel logging facility
