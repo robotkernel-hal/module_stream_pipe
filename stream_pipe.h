@@ -26,21 +26,17 @@
 #define __STREAM_PIPE_H__
 
 #include "robotkernel/kernel.h"
-#include "module_stream_pipe.h"
+#include "robotkernel/module_base.h"
 #include "yaml-cpp/yaml.h"
 
 #include <string>
 #include <vector>
 
 namespace module_stream_pipe {
-#ifdef EMACS_IS_CLEVER
-}
-#endif
 
-class stream_pipe {
+class stream_pipe 
+    : robotkernel::module_base {
 public:
-	std::string name;
-
 	std::string module1;
 	std::string module2;
 	bool bidirectional;
@@ -48,11 +44,10 @@ public:
 	bool debug;
 	
 	// state
-	module_state_t state;
 	robotkernel::module* m1;
 	robotkernel::module* m2;
 
-	stream_pipe(const char *name, const YAML::Node& node);
+	stream_pipe(const std::string& name, const YAML::Node& node);
 	~stream_pipe();
 
 	class piper : public robotkernel::runnable {
@@ -76,17 +71,6 @@ public:
 
 	int set_state(module_state_t state);
 	int request(int reqcode, void* ptr);
-        
-	//! log to kernel logging facility
-	void log(robotkernel::loglevel lvl, const char *format, ...) {
-		char buf[1024];
-
-		// format argument list
-		va_list args;
-		va_start(args, format);
-		vsnprintf(buf, 1024, format, args);
-		klog(lvl, "[%s|%s] %s", MODNAME, name.c_str(), buf);
-	}
 };
 
 }; // namespace module_stream_pipe

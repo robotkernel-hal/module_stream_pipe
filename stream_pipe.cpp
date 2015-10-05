@@ -78,7 +78,7 @@ void stream_pipe::piper::op(std::string mod1, robotkernel::module* m1, std::stri
 void stream_pipe::piper::run() {
 	vector<char> buffer(parent->buffer_size);
 	parent->log(verbose, "stream pipe reading from %s writing to %s running!\n", mod1.c_str(), mod2.c_str());
-	while (_running) {
+	while (running()) {
 		ssize_t ret = m1->read(&buffer[0], parent->buffer_size);
 		if(parent->debug) parent->log(info, "got %d bytes from %s\n", ret, mod1.c_str());
 
@@ -126,31 +126,14 @@ void stream_pipe::piper::run() {
 	}
 }
 
-stream_pipe::stream_pipe(const char *name, const YAML::Node& node) {
-	this->name = name;
+stream_pipe::stream_pipe(const std::string& name, const YAML::Node& node)
+	: module_base("module_stream_pipe", name, node) {
+	module1       = get_as<std::string>(node, "module1");
+	module2       = get_as<std::string>(node, "module2");
 
-	// init state
-	state = module_state_init;
-
-
-	module1 = node["module1"].to<std::string>();
-	module2 = node["module2"].to<std::string>();
-	
-	const YAML::Node *value;
-	if((value = node.FindValue("bidirectional")))
-		bidirectional = (*value).to<bool>();
-	else
-		bidirectional = true;
-
-	if((value = node.FindValue("buffer_size")))
-		buffer_size = (*value).to<unsigned int>();
-	else
-		buffer_size = 1024;
-
-	if((value = node.FindValue("debug")))
-		debug = (*value).to<bool>();
-	else
-		debug = false;
+	bidirectional = get_as<bool>(node, "bidirectional", true);
+	buffer_size   = get_as<unsigned int>(node, "buffer_size", 1024);
+	debug         = get_as<bool>(node, "debug", false);
 	
 	pipers.push_back(new piper(this));
 	if(bidirectional)
