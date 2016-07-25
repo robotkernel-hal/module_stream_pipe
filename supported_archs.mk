@@ -1,1 +1,0 @@
-SUPPORTED_ARCHS=sled11-x86-gcc4.x sled11-x86_64-gcc4.x ubuntu12.04-armhf-gcc4.x 
