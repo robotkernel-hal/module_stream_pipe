@@ -17,6 +17,7 @@ if test -n "$SOURCE_ENV"; then
 fi
 
 # Checks for programs.
+AM_PROG_AR
 AC_PROG_CXX
 AC_PROG_AWK
 AC_PROG_INSTALL
@@ -45,21 +46,8 @@ AC_SUBST(SET_MAKE)
 
 # setup rmpm
 RMPM_ARCH
-
-if test "$rmpm_host" == "arm-angstrom-linux-gnueabi"; then
-   ARCH_CFLAGS="-DNO_RDTSC"
-fi
-AC_SUBST(ARCH_CFLAGS)
-
-PKG_CHECK_MODULES([ROBOTKERNEL], [robotkernel], [], [
-                    RMPM_CHECK_MODULES([ROBOTKERNEL], [robotkernel.robotkernel])
-                   ])
-LN_BASE=$(env -i "$srcdir"/scripts/get_ln_base.py $ROBOTKERNEL_CXX_DEPENDS)
-LN_GENERATE_ARGS='-md_dir $(srcdir)/message_definitions'
-LN_GENERATE="env -i $LN_BASE/scripts/ln_generate $LN_GENERATE_ARGS"
-
-AC_SUBST(LN_BASE)
-AC_SUBST(LN_GENERATE)
+m4_esyscmd([scripts/m4_deps.py])
+RM_FIND_LN_FROM_ENV
 
 AC_DEFINE_UNQUOTED(BUILD_DATE,"`date -u`",[Date (usually date of extraction from SVN).])
 AC_DEFINE_UNQUOTED(BUILD_USER,"`whoami`",[User (usually user logged in on shell).])
@@ -81,9 +69,7 @@ AC_CHECK_FUNCS([strdup])
 AC_CHECK_LIB(dl, dlopen, DL_LIBS="-ldl", DL_LIBS=)
 AC_SUBST(DL_LIBS)
 
-
 AC_CONFIG_FILES([Makefile src/main/cpp/Makefile])
-AC_CONFIG_FILES([module_stream_pipe.pt], [cp module_stream_pipe.pt ${ac_abs_top_srcdir}])
 
 AC_OUTPUT
 
