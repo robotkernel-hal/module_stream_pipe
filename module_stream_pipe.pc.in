@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: module_stream_pipe
+Description: robotkernel module to do stream piping.
+URL: rmc-github.robotic.dlr.de:robotkernel/module_stream_pipe.git
+Version: @VERSION@
+Cflags: -I@includedir@ 
+

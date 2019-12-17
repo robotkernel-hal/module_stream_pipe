@@ -33,46 +33,62 @@
 #include <vector>
 
 namespace module_stream_pipe {
+#ifdef EMACS
+}
+#endif
 
-class stream_pipe 
-    : robotkernel::module_base {
-public:
-	std::string module1;
-	std::string module2;
-	bool bidirectional;
-	unsigned int buffer_size;
-	bool debug;
-	
-	// state
-	robotkernel::module* m1;
-	robotkernel::module* m2;
+class stream_pipe : 
+    robotkernel::module_base 
+{
+    public:
+        std::string stream_dev_name_1;
+        std::string stream_dev_name_2;
+        bool bidirectional;
+        unsigned int buffer_size;
+        bool debug;
 
-	stream_pipe(const std::string& name, const YAML::Node& node);
-	~stream_pipe();
+        // state
+        robotkernel::sp_stream_t stream_1;
+        robotkernel::sp_stream_t stream_2;
 
-	class piper : public robotkernel::runnable {
-		stream_pipe* parent;
+    public:
+        //! construction
+        /*!
+         * \param[in] name      Module instance name.
+         * \param[in] node      Module configuration node.
+         */
+        stream_pipe(const std::string& name, const YAML::Node& node);
+        ~stream_pipe();
 
-		std::string mod1;
-		std::string mod2;
-		
-		robotkernel::module* m1;
-		robotkernel::module* m2;
-	public:
-		piper(stream_pipe* parent);
-		~piper();
-		void init();
-		void op(std::string mod1, robotkernel::module* m1, std::string mod2, robotkernel::module* m2);
+        class piper : 
+            public robotkernel::runnable 
+        {
+            private:
+                stream_pipe* parent;
 
-		void run();
-	};
-	typedef std::vector<piper*> pipers_t;
-	pipers_t pipers;
+                robotkernel::sp_stream_t stream_1;
+                robotkernel::sp_stream_t stream_2;
 
-	int set_state(module_state_t state);
-	int request(int reqcode, void* ptr);
+            public:
+                piper(stream_pipe* parent);
+                ~piper();
+
+                void init();
+                void op(robotkernel::sp_stream_t str_1, robotkernel::sp_stream_t str_2);
+
+                void run();
+        };
+
+        typedef std::vector<piper*> pipers_t;
+        pipers_t pipers;
+
+        int set_state(module_state_t state);
+        int request(int reqcode, void* ptr);
 };
 
+#ifdef EMACS
+{
+#endif
 }; // namespace module_stream_pipe
 
 #endif /* __STREAM_PIPE_H__ */
