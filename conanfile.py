@@ -9,3 +9,6 @@ class MainProject(ConanFile):
     exports_sources = ["*", "!.gitignore"] 
     requires = "robotkernel/[~6]@robotkernel/unstable"
 
+    def source(self):
+        self.run(f"sed 's/AC_INIT(.*/AC_INIT([{self.name}], [{self.version}], [{self.author}])/' configure.ac.in > configure.ac")
+
