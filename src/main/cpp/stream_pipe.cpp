@@ -24,7 +24,7 @@
 
 #include "stream_pipe.h"
 #include "robotkernel/helpers.h"
-#include "robotkernel/kernel.h"
+#include "robotkernel/robotkernel.h"
 #include "robotkernel/exceptions.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -44,11 +44,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-
-#include <string_util/string_util.h>
-
 using namespace std;
-using namespace string_util;
 using namespace robotkernel;
 using namespace module_stream_pipe;
 
@@ -97,7 +93,7 @@ void stream_pipe::piper::run() {
             unsigned int N = 16;
             while(written < to_write) {
                 for(unsigned int i = written; i < written + N && i < to_write; ++i) {
-                    ss << format_string("%02x ", (unsigned int)buffer[i]);
+                    ss << string_printf("%02x ", (unsigned int)buffer[i]);
                 }
                 for(unsigned int i = 0; i < (written + N) - to_write; ++i)
                     ss << "   ";
@@ -105,7 +101,7 @@ void stream_pipe::piper::run() {
                 for(unsigned int i = written; i < written + N && i < to_write; ++i) {
                     char cp = buffer[i];
                     if(isprint(cp))
-                        ss << format_string("%c", cp);
+                        ss << string_printf("%c", cp);
                     else
                         ss << ".";
                 }
@@ -163,9 +159,9 @@ int stream_pipe::set_state(module_state_t state) {
                 pipers[i]->init();
             break;
         case module_state_preop:
-            stream_1 = kernel::get_instance()->get_stream(stream_dev_name_1);
+            stream_1 = get_device<stream>(stream_dev_name_1);
             if (!stream_1)
-                throw str_exception_tb("failed to find stream_1: %s", repr(stream_dev_name_1).c_str());
+                throw runtime_error(string_printf("failed to find stream_1: %s", stream_dev_name_1.c_str()));
 #if 0 // move this to a new stream stdin/out module
             if (module2 == "STDOUT")
                 m2 = NULL;
@@ -173,9 +169,9 @@ int stream_pipe::set_state(module_state_t state) {
 #else 
             {
 #endif
-                stream_2 = kernel::get_instance()->get_stream(stream_dev_name_2);
+                stream_2 = get_device<stream>(stream_dev_name_2);
                 if (!stream_2)
-                    throw str_exception_tb("failed to find stream_2: %s", repr(stream_dev_name_2).c_str());
+                    throw runtime_error(string_printf("failed to find stream_2: %s", stream_dev_name_2.c_str()));
             }
 
             pipers[0]->op(stream_1, stream_2);

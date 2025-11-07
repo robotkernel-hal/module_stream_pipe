@@ -25,7 +25,7 @@
 #ifndef __STREAM_PIPE_H__
 #define __STREAM_PIPE_H__
 
-#include "robotkernel/kernel.h"
+#include "robotkernel/robotkernel.h"
 #include "robotkernel/module_base.h"
 #include "yaml-cpp/yaml.h"
 
@@ -33,9 +33,6 @@
 #include <vector>
 
 namespace module_stream_pipe {
-#ifdef EMACS
-}
-#endif
 
 class stream_pipe : 
     robotkernel::module_base 
@@ -86,9 +83,6 @@ class stream_pipe :
         int request(int reqcode, void* ptr);
 };
 
-#ifdef EMACS
-{
-#endif
 }; // namespace module_stream_pipe
 
 #endif /* __STREAM_PIPE_H__ */
