@@ -1,0 +1,66 @@
+module-stream-pipe (6.0.0) unstable; urgency=low
+
+  * ported to rk-5
+  * switched to conan template
+  * switched to conan template
+  * switching to defaults
+  * switching to defaults
+  * added architectures
+  * fixed jenkinsfile
+  * added architectures
+  * build: updated build/ci files for cissy 1.0->2.0
+  * build: updated build/ci files for cissy 1.0->2.0
+  * updated reqs
+  * updated jenkins file
+  * updated requires
+  * added missing m4 script
+  * updated requiers
+  * added conan/jenkins stuff
+
+ -- Robert Burger <robert.burger@dlr.de>  Tue, 17 Dec 2019 15:05:11 +0100
+
+module-stream-pipe (4.1.0) unstable; urgency=low
+
+  * 'automated_commit'
+  * 'scripts_updated'
+  * 'scripts_updated'
+  * fixec vxworks SIGILL
+  * 'scripts_updated'
+  * fixed build
+  * 'replaced_with_default'
+  * 'scripts_updated'
+  * 'scripts_updated'
+  * 'scripts_updated'
+  * 'scripts_updated'
+  * "transforming"
+  * 'scripts_updated'
+  * updated scripts
+  * added submodule scripts
+
+ -- Robert Burger <robert.burger@dlr.de>  Wed, 30 Nov 2016 10:28:15 +0100
+
+module-stream-pipe (4.0.0) unstable; urgency=low
+
+  * fixed release archs
+  * added documentation tag
+  * added ignores
+  * swithced to yamlcpp 0.5.2
+  * removed some files! !
+
+ -- Robert Burger <robert.burger@dlr.de>  Tue, 6 Oct 2015 04:49:48 +0000
+
+module-stream-pipe (3.1.0) unstable; urgency=low
+
+  * fixed archs
+  * fixed archs
+
+ -- Robert Burger <robert.burger@dlr.de>  Tue, 3 Feb 2015 06:32:11 +0000
+
+module-stream-pipe (3.0.0) unstable; urgency=low
+
+  * initial version of stream pipe
+  * copy from tcp module
+  * creating svn directory 'https://rmsvn01.robotic.dlr.de/software/robotkernel/src/module_stream_pipe/trunk' [rmpm admintool (schm_fl, 2014-11-25-11-43-54)]
+
+ -- Florian Schmidt <Florian.Schmidt@dlr.de>  Thu, 27 Nov 2014 10:26:46 +0000
+
