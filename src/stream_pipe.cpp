@@ -46,6 +46,7 @@
 
 using namespace std;
 using namespace robotkernel;
+using namespace robotkernel::helpers;
 using namespace module_stream_pipe;
 
 stream_pipe::piper::piper(stream_pipe* parent) {
