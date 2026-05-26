@@ -7,7 +7,7 @@ class MainProject(ConanFile):
     name = "module_stream_pipe"
     description = ""
     exports_sources = ["*", "!.gitignore"] 
-    requires = "robotkernel/[~6]@robotkernel/unstable"
+    requires = "robotkernel/[~6]@robotkernel/stable"
 
     def source(self):
         self.run(f"sed 's/AC_INIT(.*/AC_INIT([{self.name}], [{self.version}], [{self.author}])/' configure.ac.in > configure.ac")
