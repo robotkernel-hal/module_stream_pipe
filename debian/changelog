@@ -1,4 +1,4 @@
-module-stream-pipe (6.0.0) unstable; urgency=low
+module-stream-pipe (6.0.0) stable; urgency=low
 
   * ported to rk-5
   * switched to conan template
